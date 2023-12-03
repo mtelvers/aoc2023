@@ -10,22 +10,30 @@ let read_input =
   in
   loop ic []
 
-let rev s =
-  List.init (String.length s) (String.get s)
-  |> List.rev
-  |> List.map (String.make 1)
-  |> String.concat ""
+module Int = struct
+  include Int
+  let of_string_opt s =
+    try Some (int_of_string s)
+    with Failure _ -> None
+end
+
+module String = struct
+  include String
+  let rev s =
+    let l = String.length s - 1 in
+    String.init (l + 1) (fun i -> s.[l - i])
+end
 
 let sum = List.fold_left (fun total line ->
     let rec loop str = 
       match String.length str with
       | 0 -> 0
       | len -> 
-        match Nativeint.of_string_opt (String.sub str 0 1) with
-        | Some x -> Nativeint.to_int x
+        match Int.of_string_opt (String.sub str 0 1) with
+        | Some x -> x
         | None -> loop (String.sub str 1 (len - 1))
     in
-    let value = 10 * (loop line) + (loop (rev line)) in
+    let value = 10 * (loop line) + (loop (String.rev line)) in
     value + total
   ) 0 read_input
 
@@ -33,7 +41,7 @@ let () = Printf.printf "part 1: %i\n" sum
 
 let sum = List.fold_left (fun total line ->
     let nums = [(1, "one"); (2, "two"); (3, "three"); (4, "four"); (5, "five"); (6, "six"); (7, "seven"); (8, "eight"); (9, "nine")] in
-    let rev_nums = List.map (fun (num, prefix) -> num, (rev prefix)) nums in
+    let rev_nums = List.map (fun (num, prefix) -> num, (String.rev prefix)) nums in
     let rec loop nums str = 
       match String.length str with
       | 0 -> 0
@@ -46,7 +54,7 @@ let sum = List.fold_left (fun total line ->
           | [] -> loop nums (String.sub str 1 (len - 1))
           | x :: _ -> x
     in
-    let value = 10 * (loop nums line) + (loop rev_nums (rev line)) in
+    let value = 10 * (loop nums line) + (loop rev_nums (String.rev line)) in
     value + total
   ) 0 read_input
 
