@@ -17,6 +17,13 @@ module Int = struct
     with Failure _ -> None
 end
 
+module Int = struct
+  include Int
+  let of_char_opt c =
+    try Some (int_of_char c)
+    with Failure _ -> None
+end
+
 module String = struct
   include String
   let rev s =
