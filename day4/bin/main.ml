@@ -80,11 +80,7 @@ let rec process num cards =
         let c = Cards.find (num + n) cards in
         let cards = Cards.add (num + n) { winners = c.winners; numbers = c.numbers; copies = c.copies + card.copies } cards in
         loop cards (n - 1) in
-    let () = Printf.printf "wins %i\n" w in
     let cards = loop cards w in
-    let () = Cards.iter (fun k v -> Printf.printf "%i=%i," k v.copies) cards in
-    let () = Printf.printf "\n" in
-    let () = flush stdout in
     process (num + 1) cards
 
 let cards = process 1 cards
