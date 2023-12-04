@@ -54,12 +54,14 @@ let cards = List.fold_left (fun cards line ->
   let n, card = loop split 0 Card { winners = []; numbers = []; copies = 0 } in
   Cards.add n card cards) Cards.empty read_input
 
+let num_of_winners card =
+  List.fold_left (fun wins num ->
+    if List.mem num card.winners
+    then wins + 1
+    else wins) 0 card.numbers
+
 let sum = Cards.fold (fun _ card sum ->
-  let w = List.fold_left (fun wins num ->
-      if List.mem num card.winners
-      then wins + 1
-      else wins
-    ) 0 card.numbers in
+  let w = num_of_winners card in
   let score = if w > 0 then Int.pow 2 (w - 1) else 0 in
   sum + score) cards 0
 
@@ -70,10 +72,7 @@ let rec process num cards =
   match Cards.find_opt num cards with
   | None -> cards
   | Some card -> 
-    let w = List.fold_left (fun wins num ->
-      if List.mem num card.winners
-      then wins + 1
-      else wins) 0 card.numbers in
+    let w = num_of_winners card in
     let rec loop cards = function
       | 0 -> cards
       | n ->
