@@ -72,25 +72,41 @@ let () = Maps.iter (fun k v ->
     Printf.printf "\n"
   ) maps
 
-let locations = List.map (fun seed ->
-    let rec lookup n src =
-      let (_, d), ranges = Maps.choose (Maps.filter (fun (s, _) _ -> s = src) maps) in
-      let r = List.filter (fun map -> n >= map.source && n <= (map.source + map.length - 1)) ranges in
-      let n = if List.length r > 0
-        then let m = List.hd r
-          in m.destination + (n - m.source)
-        else
-          n in
-      if d = "location"
-      then n
-      else lookup n d in
-    lookup seed "seed"
-  ) seeds
+let rec lookup n src =
+  let (_, d), ranges = Maps.choose (Maps.filter (fun (s, _) _ -> s = src) maps) in
+  let r = List.filter (fun map -> n >= map.source && n <= (map.source + map.length - 1)) ranges in
+  let n = if List.length r > 0
+    then let m = List.hd r
+      in m.destination + (n - m.source)
+    else
+      n in
+  if d = "location"
+  then n
+  else lookup n d
+
+let locations = List.map (fun seed -> lookup seed "seed") seeds
 
 let nearest = List.fold_left (fun m l -> min m l) (List.hd locations) locations
 
 let () = List.iter (Printf.printf "%i,") locations
 let () = Printf.printf "\n"
+
+let () = Printf.printf "nearest = %i\n" nearest
+
+
+let nearest =
+  let rec locations_helper x = function
+    | []
+    | _ :: [] -> x
+    | start :: length :: tl ->
+let () = Printf.printf "range start %i of length %i\n" start length in
+let () = flush stdout in
+      let rec loop l = function
+        | 0 -> l
+        | n -> loop (min (lookup (start + (n - 1)) "seed") l) (n - 1) in
+    locations_helper (loop x length) tl
+  in
+  locations_helper Int.max_int (List.rev seeds)
 
 let () = Printf.printf "nearest = %i\n" nearest
 
