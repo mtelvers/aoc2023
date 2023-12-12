@@ -20,50 +20,34 @@ let rows, groups = List.fold_left (fun (rows, groups) line ->
     row :: rows, cgroups :: groups
   ) ([], []) read_input
 
-type coord = {
-  row : char list;
-  group : int list;
-  spring : bool;
-}
-
 let cache = Hashtbl.create 1_000_000
 
-let rec loop r cg spring =
-  match Hashtbl.find_opt cache { row = r; group = cg; spring } with
+let rec loop cl il spring =
+  match Hashtbl.find_opt cache ( cl, il, spring ) with
   | Some x -> x
   | None ->
-  (*
-  let () = Printf.printf "%c %i %s\n" (if List.length r > 0 then List.hd r else '-') (if List.length cg > 0 then List.hd cg else -1) (if spring then "true" else "false") in
-     *)
-  let res =
-  match r, cg, spring with
-  | [],         [],       _ -> 1
-  | [],         [0],      _ -> 1
-  | [],         _ :: _,   _ -> 0 (* some data left *)
-  | '#' :: _,   [],       _ -> 0 (* spring left but count 0 *)
-  | _ :: rtl,   [],       _ -> if List.mem '#' rtl then 0 else 1 (* spring somewhere in rest but count 0 *)
-    (* spring *)
-  | '#' :: _,   0 :: _,   true -> 0 (* spring group already fully allocated *)
-  | '#' :: rtl, g :: gtl, _ -> loop rtl ((g - 1) :: gtl) true
-    (* space *)
-  | '.' :: rtl, 0 :: gtl, _ -> loop rtl gtl false
-  | '.' :: rtl, g :: gtl, false -> loop rtl (g :: gtl) false
-  | '.' :: rtl, g :: gtl, true -> 0 (* more spring to allocated - failed *)
-    (* run of springs *)
-  | '?' :: rtl, 0 :: gtl, true -> loop rtl gtl false
-  | '?' :: rtl, g :: gtl, true -> loop rtl ((g - 1) :: gtl) true
-    (* could be a spring or not *)
-  | '?' :: rtl, g :: gtl, _ -> (loop rtl (g :: gtl) false) + (loop rtl ((g - 1) :: gtl) true)
-  | _ -> assert false
-  in
-  let () = Hashtbl.add cache { row = r; group = cg; spring } res in
-  res
-
-let () = List.iter2 (fun row group ->
-    let () = List.iter (Printf.printf "%c") row in
-    let () = List.iter (Printf.printf ",%i") group in
-    Printf.printf " = %i\n" (loop row group false)
-  ) rows groups
+    let res =
+    match cl, il, spring with
+    | [],         [],       _ ->     1
+    | [],         [0],      _ ->     1
+    | [],         _ :: _,   _ ->     0 (* some data left *)
+    | '#' :: _,   [],       _ ->     0 (* spring left but count 0 *)
+    | _ :: clt,   [],       _ ->     if List.mem '#' clt then 0 else 1 (* spring somewhere in rest but count 0 *)
+      (* spring *)
+    | '#' :: _,   0 :: _,   true ->  0 (* spring group already fully allocated *)
+    | '#' :: clt, g :: ilt, _ ->     loop clt ((g - 1) :: ilt) true
+      (* space *)
+    | '.' :: clt, 0 :: ilt, _ ->     loop clt ilt false
+    | '.' :: clt, g :: ilt, false -> loop clt (g :: ilt) false
+    | '.' :: _,   _ :: _,   true ->  0 (* more spring to allocated - failed *)
+      (* run of springs *)
+    | '?' :: clt, 0 :: ilt, true ->  loop clt ilt false
+    | '?' :: clt, g :: ilt, true ->  loop clt ((g - 1) :: ilt) true
+      (* could be a spring or not *)
+    | '?' :: clt, g :: ilt, _ ->    (loop clt (g :: ilt) false) + (loop clt ((g - 1) :: ilt) true)
+    | _ -> assert false in
+    let () = Hashtbl.add cache ( cl, il, spring ) res in
+    res
 
 let sum = List.map2 (fun row group -> loop row group false) rows groups
          |> List.fold_left ( + ) 0
@@ -79,4 +63,3 @@ let sum = List.map2 (fun row group ->
          |> List.fold_left ( + ) 0
 
 let () = Printf.printf "part 2 %i\n" sum
-
