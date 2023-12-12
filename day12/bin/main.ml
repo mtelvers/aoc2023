@@ -20,10 +20,22 @@ let rows, groups = List.fold_left (fun (rows, groups) line ->
     row :: rows, cgroups :: groups
   ) ([], []) read_input
 
+type coord = {
+  row : char list;
+  group : int list;
+  spring : bool;
+}
+
+let cache = Hashtbl.create 1_000_000
+
 let rec loop r cg spring =
+  match Hashtbl.find_opt cache { row = r; group = cg; spring } with
+  | Some x -> x
+  | None ->
   (*
   let () = Printf.printf "%c %i %s\n" (if List.length r > 0 then List.hd r else '-') (if List.length cg > 0 then List.hd cg else -1) (if spring then "true" else "false") in
      *)
+  let res =
   match r, cg, spring with
   | [],         [],       _ -> 1
   | [],         [0],      _ -> 1
@@ -43,6 +55,9 @@ let rec loop r cg spring =
     (* could be a spring or not *)
   | '?' :: rtl, g :: gtl, _ -> (loop rtl (g :: gtl) false) + (loop rtl ((g - 1) :: gtl) true)
   | _ -> assert false
+  in
+  let () = Hashtbl.add cache { row = r; group = cg; spring } res in
+  res
 
 let () = List.iter2 (fun row group ->
     let () = List.iter (Printf.printf "%c") row in
@@ -53,4 +68,15 @@ let () = List.iter2 (fun row group ->
 let sum = List.map2 (fun row group -> loop row group false) rows groups
          |> List.fold_left ( + ) 0
 
-let () = Printf.printf "part 1 %i" sum
+let () = Printf.printf "part 1 %i\n" sum
+
+
+let rows = List.map (fun row -> row @ ['?'] @ row @ ['?'] @ row @ ['?'] @ row @ ['?'] @ row) rows
+let groups = List.map (fun group -> group @ group @ group @ group @ group) groups
+
+let sum = List.map2 (fun row group ->
+    loop row group false) rows groups
+         |> List.fold_left ( + ) 0
+
+let () = Printf.printf "part 2 %i\n" sum
+
