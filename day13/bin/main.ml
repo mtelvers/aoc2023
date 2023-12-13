@@ -10,65 +10,17 @@ let read_input =
   in
   loop ic []
 
-module String = struct
-  include String
-  let from_char_list cl =
-    String.concat "" (List.map (String.make 1) cl)
-end
-
-type coord = {
-  y : int;
-  x : int;
-}
-
-module Valley = Map.Make (struct
-  type t = coord
-  let compare = compare
-end)
-
-let valleys, valley, _ = List.fold_left (fun (valleys, valley, location) line ->
+let valleys, valley = List.fold_left (fun (valleys, valley) line ->
     if line = ""
-    then
-      (valley :: valleys, Valley.empty, { x = 1; y = 0 })
-    else
-      String.fold_left (fun (valleys, valley, location) ch ->
-        valleys, (Valley.add location ch valley), { x = location.x + 1; y = location.y }
-      ) (valleys, valley, { x = 1; y = location.y + 1 }) line
-  ) ([], Valley.empty, { x = 1; y = 0 }) (List.rev read_input)
+    then (valley :: valleys, [])
+    else (valleys, valley @ [ line ])
+  ) ([], []) (List.rev read_input)
 
 let valleys = valley :: valleys
 
 let () = Printf.printf "Number of valleys %i\n" (List.length valleys)
 
-let valley_from_rows lines =
-  let valley, _ = List.fold_left (fun (valley, location) line ->
-    String.fold_left (fun (valley, location) ch ->
-      (Valley.add location ch valley), { x = location.x + 1; y = location.y }
-    ) (valley, { x = 1; y = location.y + 1 }) line
-  ) (Valley.empty, { x = 1; y = 0 }) lines in
-  valley
-
-let valley_from_columns lines =
-  let valley, _ = List.fold_left (fun (valley, location) line ->
-    String.fold_left (fun (valley, location) ch ->
-      (Valley.add location ch valley), { x = location.x; y = location.y + 1 }
-    ) (valley, { x = location.x + 1; y = 1 }) line
-  ) (Valley.empty, { x = 0; y = 1 }) lines in
-  valley
-
-let vector comp_fun valley =
-  Valley.fold (fun k _ lst ->
-    let seen = List.fold_left (fun seen vec ->
-      let any, _ = Valley.choose vec in
-      seen || comp_fun any k) false lst in
-    if seen then lst
-    else Valley.filter (fun m _ -> comp_fun k m) valley :: lst) valley []
-
-let rows valley =
-  vector (fun p1 p2 -> p1.y = p2.y) valley
-
-let columns valley =
-  vector (fun p1 p2 -> p1.x = p2.x) valley
+let flip x = List.init (String.length (List.hd x)) (fun i -> List.map (fun s -> String.make 1 (String.get s i)) x |> String.concat "")
 
 let rec find_pair seen = function
   | [] -> (seen, [])
@@ -86,12 +38,7 @@ let count_differences s1 s2 =
   List.fold_left2 (fun count c1 c2 -> if c1 = c2 then count else count + 1) 0 l1 l2
 
 let rec score valley recurse =
-    let r = List.fold_left (fun acc row ->
-      let _, cl = Valley.bindings row |> List.split in
-      (String.from_char_list cl) :: acc) [] (rows valley) in
-    let c = List.fold_left (fun acc col ->
-      let _, cl = Valley.bindings col |> List.split in
-      (String.from_char_list cl) :: acc) [] (columns valley) in
+    let flipped_valley = flip valley in
     let rec sum_pairs sum m l1 l2 =
       let p1, p2 = find_pair l1 l2 in
       if List.is_empty p2
@@ -100,9 +47,9 @@ let rec score valley recurse =
         if list_equal (List.rev p1) p2
         then sum_pairs ((m * (List.length p1)) :: sum) m p1 p2
         else sum_pairs sum m p1 p2 in
-    let sum = sum_pairs [] 100 [] r in
-    let sum = sum_pairs sum 1 [] c in
-    let rec all_differences alts row_or_column lst = function
+    let sum = sum_pairs [] 100 [] valley in
+    let sum = sum_pairs sum 1 [] flipped_valley in
+    let rec all_differences alts flipped lst = function
       | [] -> alts
       | hd :: tl ->
         let rec check nv lst2 = function
@@ -112,13 +59,13 @@ let rec score valley recurse =
             then check ((lst @ [hd] @ lst2 @ [hd] @ tl2) :: (lst @ [hd2] @ lst2 @ [hd2] @ tl2) :: nv) (lst2 @ [hd2]) tl2
             else check nv (lst2 @ [hd2]) tl2 in
         let new_possibilities = check [] [] tl in
-        let new_valleys = List.map (fun x -> if row_or_column then valley_from_rows x else valley_from_columns x) new_possibilities in
+        let new_valleys = List.map (fun x -> if flipped then flip x else x) new_possibilities in
         let alternate_scores = List.map (fun v -> score v false) new_valleys |> List.flatten in
-      all_differences (alternate_scores @ alts) row_or_column (lst @ [hd]) tl in
+      all_differences (alternate_scores @ alts) flipped (lst @ [hd]) tl in
     match recurse with
     | true ->
-      let alts = all_differences [] true [] r in
-      let alts = all_differences alts false [] c in
+      let alts = all_differences [] false [] valley in
+      let alts = all_differences alts true [] flipped_valley in
       let alts = List.filter (fun x -> x > 0 && not (List.mem x sum)) alts in
       List.sort_uniq (compare) alts
     | false -> sum
