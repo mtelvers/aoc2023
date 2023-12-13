@@ -20,7 +20,7 @@ let valleys = valley :: valleys
 
 let () = Printf.printf "Number of valleys %i\n" (List.length valleys)
 
-let flip x = List.init (String.length (List.hd x)) (fun i -> List.map (fun s -> String.make 1 (String.get s i)) x |> String.concat "")
+let flip x = List.init (String.length (List.hd x)) (fun i -> List.map (fun s -> String.make 1 (String.get s i)) x |> String.concat String.empty)
 
 let rec find_pair seen = function
   | [] -> (seen, [])
@@ -33,9 +33,15 @@ let rec list_equal l1 l2 =
   | hd1 :: tl1, hd2 :: tl2 -> if hd1 = hd2 then list_equal tl1 tl2 else false
 
 let count_differences s1 s2 =
-  let l1 = List.init (String.length s1) (String.get s1) in
-  let l2 = List.init (String.length s2) (String.get s2) in
-  List.fold_left2 (fun count c1 c2 -> if c1 = c2 then count else count + 1) 0 l1 l2
+  let rec loop index count =
+    if index = 0
+    then count
+    else
+      let index = index - 1 in
+      if (String.get s1 index) = (String.get s2 index)
+      then loop index count
+      else loop index (count + 1) in
+  loop (String.length s1) 0
 
 let rec score valley recurse =
     let flipped_valley = flip valley in
