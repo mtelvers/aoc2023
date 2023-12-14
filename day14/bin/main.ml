@@ -33,30 +33,26 @@ let print p =
     k.y) p 1 in
   Printf.printf "\n\n"
 
-let north_of pos = { x = pos.x; y = pos.y - 1 }
+let north pos = { x = pos.x; y = pos.y - 1 }
+let west pos = { x = pos.x - 1; y = pos.y }
+let south pos = { x = pos.x; y = pos.y + 1 }
+let east pos = { x = pos.x + 1; y = pos.y }
 
-let can_move p r =
-  if r.y = 1
-  then false
-  else
-    let content = Platform.find (north_of r) p in
-    if content = '.'
-    then true
-    else false
+let can_move p r dir =
+  match Platform.find_opt (dir r) p with
+  | None -> false
+  | Some '.' -> true
+  | Some _ -> false
 
 let () = print platform
 
-let rec tip p =
-  let rocks = Platform.filter (fun r ch -> ch = 'O' && can_move p r) p in
+let rec tip p dir =
+  let rocks = Platform.filter (fun r ch -> ch = 'O' && can_move p r dir) p in
   if Platform.cardinal rocks > 0
   then
-    let p = Platform.fold (fun pos _ a -> Platform.add pos '.' a |> Platform.add (north_of pos) 'O' ) rocks p in
-    tip p
+    let p = Platform.fold (fun pos _ a -> Platform.add pos '.' a |> Platform.add (dir pos) 'O' ) rocks p in
+    tip p dir
   else p
-
-let platform = tip platform
-
-let () = print platform
 
 let load p =
   let y, c, count = Platform.fold (fun k v (y, c, count) ->
@@ -67,4 +63,21 @@ let load p =
   let sum, _ = List.fold_left (fun (sum, y) v -> sum + v * y, y - 1) (0, y) count in
   sum
 
-let () = Printf.printf "part 1 %i\n" (load platform)
+let () = Printf.printf "part 1 %i\n" (load (tip platform north))
+
+
+let cache = Hashtbl.create 1_000_000
+
+let rec loop n p results =
+  match Hashtbl.find_opt cache p with
+    | Some x -> (x, n, results)
+    | None ->
+      let results = results @ [load p] in
+      let () = Hashtbl.add cache p n in
+      let p = List.fold_left (fun p dir -> tip p dir) p [ north; west; south; east ] in
+      loop (n + 1) p results
+
+let entry, last, results = loop 0 platform []
+
+let final = entry + ((1_000_000_000 - entry) mod (last - entry))
+let () = Printf.printf "part 2 %i\n" (List.nth results final)
