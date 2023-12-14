@@ -66,18 +66,19 @@ let load p =
 let () = Printf.printf "part 1 %i\n" (load (tip platform north))
 
 
-let cache = Hashtbl.create 1_000_000
+let cache = Hashtbl.create 1_000
+let results = Hashtbl.create 1_000
 
-let rec loop n p results =
+let rec loop n p =
   match Hashtbl.find_opt cache p with
-    | Some x -> (x, n, results)
+    | Some x -> (x, n)
     | None ->
-      let results = results @ [load p] in
+      let () = Hashtbl.add results n (load p) in
       let () = Hashtbl.add cache p n in
       let p = List.fold_left (fun p dir -> tip p dir) p [ north; west; south; east ] in
-      loop (n + 1) p results
+      loop (n + 1) p
 
-let entry, last, results = loop 0 platform []
+let entry, last = loop 0 platform
 
 let final = entry + ((1_000_000_000 - entry) mod (last - entry))
-let () = Printf.printf "part 2 %i\n" (List.nth results final)
+let () = Printf.printf "part 2 %i\n" (Hashtbl.find results final)
