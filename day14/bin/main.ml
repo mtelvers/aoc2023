@@ -10,60 +10,30 @@ let read_input =
   in
   loop ic []
 
-type coord = {
-  y : int;
-  x : int;
-}
+let platform = List.rev read_input
 
-module Platform = Map.Make (struct
-  type t = coord
-  let compare = compare
-end)
-
-let platform, _ = List.fold_left (fun (platform, location) line ->
-    String.fold_left (fun (platform, location) ch ->
-      (Platform.add location ch platform), { x = location.x + 1; y = location.y }
-    ) (platform, { x = 1; y = location.y + 1 }) line
-  ) (Platform.empty, { x = 1; y = 0 }) (List.rev read_input)
+let flip x = List.init (String.length (List.hd x)) (fun i -> List.map (fun s -> String.make 1 (String.get s i)) x |> String.concat String.empty)
 
 let print p =
-  let _ = Platform.fold (fun k v y ->
-    let () = if k.y != y then Printf.printf "\n" in
-    let () = Printf.printf "%c" v in
-    k.y) p 1 in
+  let () = List.iter (Printf.printf "%s\n") p in
   Printf.printf "\n\n"
 
-let north pos = { x = pos.x; y = pos.y - 1 }
-let west pos = { x = pos.x - 1; y = pos.y }
-let south pos = { x = pos.x; y = pos.y + 1 }
-let east pos = { x = pos.x + 1; y = pos.y }
+let tip ?(rev = false) p =
+  let tip_string s =
+    List.map (fun s ->
+      let nrocks = String.fold_left (fun acc ch -> if ch = 'O' then acc + 1 else acc) 0 s in
+      match rev with
+      | false -> String.init nrocks (fun _ -> 'O') ^ String.init ((String.length s) - nrocks) (fun _ -> '.')
+      | true -> String.init ((String.length s) - nrocks) (fun _ -> '.') ^ String.init nrocks (fun _ -> 'O')
+    ) (String.split_on_char '#' s) |> String.concat "#" in
+  List.map (tip_string) p
 
-let can_move p r dir =
-  match Platform.find_opt (dir r) p with
-  | None -> false
-  | Some '.' -> true
-  | Some _ -> false
-
-let () = print platform
-
-let rec tip p dir =
-  let rocks = Platform.filter (fun r ch -> ch = 'O' && can_move p r dir) p in
-  if Platform.cardinal rocks > 0
-  then
-    let p = Platform.fold (fun pos _ a -> Platform.add pos '.' a |> Platform.add (dir pos) 'O' ) rocks p in
-    tip p dir
-  else p
+let () = print (flip (tip (flip platform)))
 
 let load p =
-  let y, c, count = Platform.fold (fun k v (y, c, count) ->
-    let count, c = if k.y != y then (count @ [c]), 0 else count, c in
-    let c = if v = 'O' then c + 1 else c in
-    k.y, c, count) p (1, 0, []) in
-  let count = count @ [c] in
-  let sum, _ = List.fold_left (fun (sum, y) v -> sum + v * y, y - 1) (0, y) count in
-  sum
+  List.mapi (fun i s -> (i + 1) * String.fold_left (fun acc ch -> if ch = 'O' then acc + 1 else acc) 0 s) (List.rev p) |> List.fold_left ( + ) 0
 
-let () = Printf.printf "part 1 %i\n" (load (tip platform north))
+let () = Printf.printf "part 1 %i\n" (load (flip (tip (flip platform))))
 
 
 let cache = Hashtbl.create 1_000
@@ -75,8 +45,11 @@ let rec loop n p =
     | None ->
       let () = Hashtbl.add results n (load p) in
       let () = Hashtbl.add cache p n in
-      let p = List.fold_left (fun p dir -> tip p dir) p [ north; west; south; east ] in
-      loop (n + 1) p
+      let north = tip (flip p) in
+      let west = tip (flip north) in
+      let south = tip ~rev:true (flip west) in
+      let east = tip ~rev:true (flip south) in
+      loop (n + 1) east
 
 let entry, last = loop 0 platform
 
