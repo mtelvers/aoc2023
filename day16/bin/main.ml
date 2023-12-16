@@ -58,7 +58,7 @@ let rec loop lst = function
     | Some '/' -> loop (lst @ [new_pos, { x = - dir.y ; y = - dir.x }]) tl
     | Some _ -> assert false
 
-let cache = Hashtbl.create 1_000_000
+let cache = Hashtbl.create 10_000
 
 let rec run beams energized =
   let beams = loop [] beams in
@@ -67,8 +67,6 @@ let rec run beams energized =
   let () = List.iter (fun (pos, dir) -> Hashtbl.add cache ( pos, dir ) true) beams in
 (*  let () = print contraption beams in *)
   let ne = Contraption.cardinal energized in
-  let () = Printf.printf "energized %i (%i beams)\n" ne (List.length beams) in
-  let () = flush stdout in
   if List.length beams > 0
   then run beams energized
   else ne
@@ -77,3 +75,25 @@ let part1 = run beams Contraption.empty
 let () = Printf.printf "part 1: %i\n" part1
 
 
+let possible_starts =
+  let min, _ = Contraption.min_binding contraption in
+  let max, _ = Contraption.max_binding contraption in
+  let rec loop_vertical y lst =
+    if y >= min.y
+    then loop_vertical (y - 1) ([( { x = 0; y }, { x = 1; y = 0 } ); ( { x = max.x + 1; y }, { x = -1; y = 0 } )] @ lst)
+    else lst in
+  let rec loop_horizontal x lst =
+    if x >= min.x
+    then loop_horizontal (x - 1) ([( { x; y = 0 }, { x = 0; y = 1 } ); ( { x; y = max.y + 1 }, { x = 0; y = -1 } )] @ lst)
+    else lst in
+  loop_vertical (max.y) [] @ loop_horizontal (max.y) []
+
+
+let results = List.map (fun (pos, dir) ->
+    let () = Hashtbl.reset cache in
+    let sum = run [(pos, dir)] Contraption.empty in
+    sum
+  ) possible_starts
+
+let part2 = List.fold_left (fun m v -> max m v) 0 results
+let () = Printf.printf "part 2: %i\n" part2
