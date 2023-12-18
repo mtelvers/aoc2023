@@ -43,7 +43,6 @@ let _, lagoon = List.fold_left (fun (o, l) r ->
       | 0 -> pos, lag
       | n ->
         let pos = { x = pos.x + vec.x; y = pos.y + vec.y } in
-        let () = Printf.printf "add %i,%i\n" pos.x pos.y in
         loop pos (Lagoon.add pos '#' lag) (n - 1) in
     loop o l r.dist
   ) ({ x = 0; y = 0 }, Lagoon.empty) records
@@ -75,14 +74,35 @@ let mid a b =
 
 let lagoon = fill lagoon { x = mid bottom_right.x top_left.x; y = mid bottom_right.y top_left.y }
 
-let () = for y = top_left.y to bottom_right.y do
-  for x = top_left.x to bottom_right.x do
-    match Lagoon.find_opt {x;y} lagoon with
-    | None -> Printf.printf " "
-    | Some c -> Printf.printf "%c" c
-  done;
-  Printf.printf "\n";
-  done
-
 let () = Printf.printf "part 1 %i\n" (Lagoon.cardinal lagoon)
 
+
+
+let records = List.map (fun r ->
+    let dir = match r.colour land 0xf with
+    | 0 -> 'R'
+    | 1 -> 'D'
+    | 2 -> 'L'
+    | 3 -> 'U'
+    | _ -> assert false in
+    { dist = r.colour / 16 ; dir ; colour = r.colour }) records
+
+let points, dist = List.fold_left (fun (lst, dist) r ->
+    let pos = if List.length lst > 0 then List.hd lst else { x = 0; y = 0; } in
+    let vec = match r.dir with
+      | 'R' -> { x = 1; y = 0; }
+      | 'L' -> { x = -1; y = 0; }
+      | 'U' -> { x = 0; y = -1; }
+      | 'D' -> { x = 0; y = 1; }
+      | _ -> assert false in
+    { x = pos.x + r.dist * vec.x; y = pos.y + r.dist * vec.y } :: lst, dist + r.dist
+  ) ([], 0) records
+
+let dotproduct v1 v2 =
+  v1.x * v2.y - v1.y * v2.x
+
+let area =
+  let points2 = (List.tl points) @ [List.hd points] in
+  abs (List.fold_left2 (fun sum v1 v2 -> sum + dotproduct v1 v2) 0 points points2) / 2
+
+let () = Printf.printf "part 2 %i\n" (area - dist / 2 + 1 + dist)
