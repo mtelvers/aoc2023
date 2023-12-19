@@ -57,18 +57,7 @@ let workflows, parts = List.fold_left (fun (workflows, parts) line ->
   loop workflows parts split
   ) ([], []) read_input
 
-let () = List.iter (fun w ->
-    let () = Printf.printf "%s : " w.name in
-    let () = List.iter (fun r -> Printf.printf "%s%s%i:%s," r.variable r.condition r.number r.target) w.rules in
-    let () = Printf.printf "\n" in
-    ()
-  ) workflows
-
-let () = List.iter (fun p ->
-    let () = Printf.printf "%i %i %i %i\n" p.x p.m p.a p.s in
-    () ) parts
-
-let accepted_parts = List.filter (fun p ->
+let accepted parts = List.filter (fun p ->
     let rec process name =
       match name with
       | "A" -> "A"
@@ -96,6 +85,71 @@ let accepted_parts = List.filter (fun p ->
       "A" = process "in"
     ) parts
 
-let part1 = List.fold_left (fun sum p -> sum + p.x + p.m + p.a + p.s) 0 accepted_parts
+let part1 = List.fold_left (fun sum p -> sum + p.x + p.m + p.a + p.s) 0 (accepted parts)
 
 let () = Printf.printf "part 1 : %i\n" part1
+
+
+
+type part_range = {
+  x : int * int;
+  m : int * int;
+  a : int * int;
+  s : int * int;
+  outcome : string;
+}
+
+let sec x =
+  let _, b = x in b
+
+let rec loop nodes =
+  let finished, run = List.partition (fun p -> p.outcome = "A" || p.outcome = "R") nodes in
+  if run = []
+  then finished
+  else loop (finished @ 
+  List.fold_left (fun sum node ->
+  let w = List.find (fun w -> w.name = node.outcome) workflows in
+  let nodes, _ = List.fold_left (fun (lst, part) rule ->
+    let r1, r2 = match rule.variable, rule.condition with
+      | "x", ">" ->
+        { x = rule.number + 1, (sec part.x); m = part.m; a = part.a; s = part.s; outcome = rule.target },
+        { x = (fst part.x), rule.number; m = part.m; a = part.a; s = part.s; outcome = rule.target }
+      | "m", ">" ->
+        { m = rule.number + 1, (sec part.m); x = part.x; a = part.a; s = part.s; outcome = rule.target },
+        { m = (fst part.m), rule.number; x = part.x; a = part.a; s = part.s; outcome = rule.target }
+      | "a", ">" ->
+        { a = rule.number + 1, (sec part.a); m = part.m; x = part.x; s = part.s; outcome = rule.target },
+        { a = (fst part.a), rule.number; m = part.m; x = part.x; s = part.s; outcome = rule.target }
+      | "s", ">" ->
+        { s = rule.number + 1, (sec part.s); m = part.m; a = part.a; x = part.x; outcome = rule.target },
+        { s = (fst part.s), rule.number; m = part.m; a = part.a; x = part.x; outcome = rule.target }
+      | "x", "<" ->
+        { x = (fst part.x), rule.number - 1; m = part.m; a = part.a; s = part.s; outcome = rule.target },
+        { x = rule.number, (sec part.x); m = part.m; a = part.a; s = part.s; outcome = rule.target }
+      | "m", "<" ->
+        { m = (fst part.m), rule.number - 1; x = part.x; a = part.a; s = part.s; outcome = rule.target },
+        { m = rule.number, (sec part.m); x = part.x; a = part.a; s = part.s; outcome = rule.target }
+      | "a", "<" ->
+        { a = (fst part.a), rule.number - 1; m = part.m; x = part.x; s = part.s; outcome = rule.target },
+        { a = rule.number, (sec part.a); m = part.m; x = part.x; s = part.s; outcome = rule.target }
+      | "s", "<" ->
+        { s = (fst part.s), rule.number - 1; m = part.m; a = part.a; x = part.x; outcome = rule.target },
+        { s = rule.number, (sec part.s); m = part.m; a = part.a; x = part.x; outcome = rule.target }
+      | "", _ -> 
+        { x = part.x; m = part.m; a = part.a; s = part.s; outcome = rule.target }, part
+      | _ -> assert false in
+    r1 :: lst, r2
+    ) ([], node) w.rules
+    in (nodes @ sum)
+  ) [] run)
+
+let nodes = loop [ { x = (1, 4000); m = (1, 4000); a = (1, 4000); s = (1, 4000); outcome = "in"; } ]
+
+let part2 = List.fold_left (fun sum pr -> 
+    if pr.outcome = "A"
+    then sum + ((1 + (sec pr.x) - (fst pr.x)) * (1 + (sec pr.m) - (fst pr.m)) * (1 + (sec pr.a) - (fst pr.a)) * (1 + (sec pr.s) - (fst pr.s)))
+    else sum
+  ) 0 nodes
+
+let () = Printf.printf "part 2 : %i\n" part2
+
