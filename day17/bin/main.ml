@@ -178,6 +178,49 @@ let part1 = loop ( Possibilities.add { cumulative = 0; pos = { x = 1; y = 1 }; d
 
 let () = Printf.printf "part 1: %i\n" part1
 
+
+let cache = Hashtbl.create 1_000_000
+
+let rec loop possibles =
+  let p, _ = Possibilities.choose possibles in
+  let possibles = Possibilities.remove p possibles in
+  if p.pos = end_pos && p.step >= 4
+  then
+    let possibles = Possibilities.add p true possibles in
+    let () = Possibilities.iter (fun k _ ->
+        let () = Printf.printf "%i %i,%i %i,%i %i : " k.cumulative k.pos.x k.pos.y k.dir.x k.dir.y k.step in
+        let () = List.iter (Printf.printf "%i,") k.c in
+        Printf.printf "\n"
+      ) possibles in p.cumulative
+  else
+    let hit = Hashtbl.find_opt cache ( p.pos, p.dir, p.step ) in
+    if not (hit = None)
+    then loop possibles
+    else
+      let () = Hashtbl.add cache ( p.pos, p.dir, p.step ) true in
+      let possibles =
+        if p.step < 10 && p.dir <> { x = 0; y = 0 } then
+        let pos = { x = p.pos.x + p.dir.x; y = p.pos.y + p.dir.y } in
+        match Contraption.find_opt pos contraption with
+        | Some cost -> Possibilities.add { cumulative = p.cumulative + cost; pos; dir = p.dir; step = p.step + 1; c = p.c @ [ cost ] } true possibles
+        | _ -> possibles
+        else possibles in
+      if p.step >= 4 || p.dir = { x = 0; y = 0 } then
+      loop (List.fold_left (fun poss dir ->
+      if dir <> { x = - p.dir.x; y = - p.dir.y } && dir <> p.dir
+        then
+          let pos = { x = p.pos.x + dir.x; y = p.pos.y + dir.y } in
+          match Contraption.find_opt pos contraption with
+          | Some cost -> Possibilities.add { cumulative = p.cumulative + cost; pos; dir; step = 1; c = p.c @ [ cost ] } true poss
+          | _ -> poss
+        else poss
+        ) possibles [ { x = 0; y = 1 }; { x = 0; y = -1 }; { x = 1; y = 0 }; { x = -1; y = 0 }; ])
+      else loop possibles
+
+let part2 = loop ( Possibilities.add { cumulative = 0; pos = { x = 1; y = 1 }; dir = { x = 0; y = 0 }; step = 0; c = [] } true (Possibilities.empty) )
+
+let () = Printf.printf "part 2: %i\n" part2
+
 (*
 let beams = [{ x = 1; y = 1 }, { x = 1; y = 0 }]
 
