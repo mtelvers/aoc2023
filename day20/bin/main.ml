@@ -30,32 +30,7 @@ type record = {
   inputs : level Inputs.t;
 }
 
-(*
-module Circuit = Map.Make (struct
-  type t = string
-  let compare = compare
-end)
-   *)
-
 let circuit = Hashtbl.create 100
-
-(*
-let circuit = List.fold_left (fun circuit line ->
-  let split = Str.full_split (Str.regexp "[ ->,]") line |> List.filter (fun (x : Str.split_result) -> x <> Delim " ") in
-  let rec csv_to_list (lst: Str.split_result list) =
-    match lst with
-    | [] -> []
-    | Text s :: tl -> s :: csv_to_list tl
-    | _ :: tl -> csv_to_list tl in
-    match (split : Str.split_result list) with
-    | Delim "%" :: Text name :: Delim "-" :: Delim ">" :: tl -> Hashtbl.add name (Flipflop { outputs = csv_to_list tl; state = Low }) circuit
-    | Delim "&" :: Text name :: Delim "-" :: Delim ">" :: tl -> Hashtbl.add name (Conjunction { outputs = csv_to_list tl; state = Low }) circuit
-    | Text "broadcaster" :: Delim "-" :: Delim ">" :: tl -> Hashtbl.add "broadcaster" (Broadcaster { outputs = csv_to_list tl; state = Low }) circuit
-    | _ -> assert false
-  ) ((Hashtbl.add "button" (Button { outputs = ["broadcaster"]; state = Low })) Hashtbl.empty) read_input
-    *)
-
-let () = Hashtbl.add circuit "button" ({ t = Button; outputs = ["broadcaster"]; state = Low; inputs = Inputs.empty })
 
 let () = List.iter (fun line ->
   let split = Str.full_split (Str.regexp "[ ->,]") line |> List.filter (fun (x : Str.split_result) -> x <> Delim " ") in
@@ -70,6 +45,15 @@ let () = List.iter (fun line ->
     | Text "broadcaster" :: Delim "-" :: Delim ">" :: tl -> Hashtbl.add circuit "broadcaster" ({ t = Broadcaster; outputs = csv_to_list tl; state = Low; inputs = Inputs.empty })
     | _ -> assert false
   ) read_input
+
+let () = Hashtbl.iter (fun name m ->
+      List.iter (fun o ->
+        match Hashtbl.find_opt circuit o with
+        | Some mo when mo.t = Conjunction ->
+          Hashtbl.add circuit o ({ t = mo.t; outputs = mo.outputs; state = mo.state; inputs = Inputs.add name Low mo.inputs })
+        | _ -> ()
+      ) m.outputs
+  ) circuit
 
 let () = Hashtbl.iter (fun k v ->
     let () = match v.t with
@@ -94,34 +78,13 @@ type pulse = {
   state : level;
 }
 
-(*
-    let b = Hashtbl.find circuit "button"
-
-let inputs = match b with
-        | Button r -> List.map (fun n -> { name = n; state = Low }) r.outputs
-
-let () = Printf.printf "---\n"
-let () = List.iter (fun i -> Printf.printf "%s %s\n" i.name (if i.state = High then "high" else "low")) inputs
-
-    let m = List.map (fun i -> Hashtbl.find circuit i.name) inputs
-
-let inputs = List.fold_left (fun acc b ->
-    match b with
-        | Button r -> acc @ List.map (fun n -> { name = n; state = Low }) r.outputs
-        | Broadcaster r -> acc @ List.map (fun n -> { name = n; state = Low }) r.outputs
-  ) [] m
-
-let () = Printf.printf "---\n"
-let () = List.iter (fun i -> Printf.printf "%s %s\n" i.name (if i.state = High then "high" else "low")) inputs
-
-*)
-
 let pulses = [ { source = "button"; destination = "broadcaster"; state = Low } ]
 
-
 let process = List.fold_left (fun acc p ->
-    let m = Hashtbl.find circuit p.destination in
-    match m.t with
+    match Hashtbl.find_opt circuit p.destination with
+    | None -> acc
+    | Some m ->
+      match m.t with
         | Broadcaster ->
             let () = Hashtbl.add circuit p.destination ({ t = Broadcaster; outputs = m.outputs; state = Low; inputs = Inputs.empty }) in
             acc @ List.map (fun n -> { source = "broadcaster"; destination = n; state = Low }) m.outputs
@@ -137,12 +100,18 @@ let process = List.fold_left (fun acc p ->
         | _ -> acc
   ) []
 
-let rec loop lst =
+let rec loop (low, high) lst =
   let lst = process lst in
+  let low, high = List.fold_left (fun (l, h) p -> if p.state = Low then (l + 1, h) else (l, h + 1)) (low, high) lst in
   let () = Printf.printf "---\n" in
   let () = List.iter (fun i -> Printf.printf "%s -%s-> %s\n" i.source (if i.state = High then "high" else "low") i.destination) lst in
-  if List.length lst > 0 then loop lst else ()
+  if List.length lst > 0 then loop (low, high) lst else (low, high)
 
-let () = loop pulses
+let rec run low high n =
+  match n with
+  | 0 -> low, high
+  | n -> let low, high = loop (low + 1, high) pulses in run low high (n - 1)
 
+let low, high = run 0 0 1000
 
+let () = Printf.printf "Part 1 : %i*%i %i\n" low high (low * high)
