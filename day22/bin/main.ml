@@ -63,7 +63,7 @@ let print island =
 
 let () = print island
 
-let drop n =
+let drop island n =
   let brick = Hashtbl.fold (fun pos v lst -> if v = n then pos :: lst else lst) island [] in
   let () = assert (List.length brick <> 0) in
   let can_fall = List.fold_left (fun hit pos ->
@@ -75,18 +75,18 @@ let drop n =
   let () = if can_fall then
       let () = List.iter (Hashtbl.remove island) brick in
       List.iter (fun pos -> Hashtbl.add island { x = pos.x; y = pos.y; z = pos.z - 1 } n) brick in
-  can_fall 
+  can_fall
 
 let rec drop_all () =
-  let movement = List.fold_left (fun movement n -> (drop n) || movement) false bricks in
-    let () = Printf.printf "dropping\n" in
-let () = print island in
-    let () = flush stdout in
-  if movement then drop_all ()
+  let moved = List.fold_left (fun moved n -> if drop island n then moved + 1 else moved) 0 bricks in
+  let () = Printf.printf "dropping\n" in
+  let () = print island in
+  let () = flush stdout in
+  if moved > 0 then drop_all ()
 
 let () = drop_all ()
 
-let can_drop n =
+let can_drop island n =
   let brick = Hashtbl.fold (fun pos v lst -> if v = n then pos :: lst else lst) island [] in
   let () = assert (List.length brick <> 0) in
   let can_fall = List.fold_left (fun hit pos ->
@@ -98,15 +98,36 @@ let can_drop n =
   can_fall 
 
 let part1 = List.fold_left (fun sum n ->
-    let () = Printf.printf "considering %i\n" n in
-    let () = flush stdout in
-  let brick = Hashtbl.fold (fun pos v lst -> if v = n then pos :: lst else lst) island [] in
-  let () = List.iter (Hashtbl.remove island) brick in
-  let was_movement = List.fold_left (fun movement m -> 
-      (can_drop m) || movement) false (List.filter (fun m -> n <> m) bricks) in
-  let () = List.iter (fun pos -> Hashtbl.add island pos n) brick in
-  let () = Printf.printf "%i removed - %s\n" n (if was_movement then "movement" else "solid") in
-    if was_movement then sum else sum + 1
+  let copy = Hashtbl.copy island in
+  let brick = Hashtbl.fold (fun pos v lst -> if v = n then pos :: lst else lst) copy [] in
+  let () = List.iter (Hashtbl.remove copy) brick in
+  let number_moved = List.fold_left (fun movement m ->
+    if can_drop copy m then movement + 1 else movement) 0 (List.filter (fun m -> n <> m) bricks) in
+  let () = Printf.printf "brick %i removed - %i moved\n" n number_moved in
+  let () = flush stdout in
+    if number_moved > 0 then sum else sum + 1
 ) 0 bricks
 
 let () = Printf.printf "Part 1 - %i\n" part1
+let () = flush stdout
+
+
+let part2 = List.fold_left (fun sum n ->
+  let copy = Hashtbl.copy island in
+  let brick = Hashtbl.fold (fun pos v lst -> if v = n then pos :: lst else lst) copy [] in
+  let () = List.iter (Hashtbl.remove copy) brick in
+  let brick_list = List.filter (fun m -> n <> m) bricks in
+  let rec loop lst = function
+    | true -> lst
+    | false -> let moved = List.fold_left (fun lst m ->
+        if drop copy m then m :: lst else lst) [] brick_list in
+           loop (moved @ lst) (List.length moved = 0) in
+  let all_moved = loop [] false in
+  let () = Printf.printf "brick %i removed - %i moved : " n (List.length all_moved) in
+  let () = List.iter (Printf.printf "%i,") all_moved in
+  let () = Printf.printf "\n" in
+  let () = flush stdout in
+  sum + (List.sort_uniq (compare) all_moved |> List.length)
+) 0 bricks
+
+let () = Printf.printf "Part 2 - %i\n" part2
