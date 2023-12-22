@@ -27,7 +27,7 @@ let bricks = List.fold_left (fun bricks line ->
     let brick = if head.x <> tail.x then List.init (1 + tail.x - head.x) (fun i -> { x = head.x + i; y = head.y; z = head.z }) else
       if head.y <> tail.y then List.init (1 + tail.y - head.y) (fun i -> { x = head.x; y = head.y + i; z = head.z }) else
       if head.z <> tail.z then List.init (1 + tail.z - head.z) (fun i -> { x = head.x; y = head.y; z = head.z + i }) else
-      [] in
+      [ { x = head.x; y = head.y; z = head.z } ] in
     brick :: bricks
   ) [] read_input
 
@@ -36,28 +36,26 @@ let () = List.iter (fun brick ->
     Printf.printf "\n"
   ) bricks
 
-module Island = Map.Make (struct
-  type t = coord
-  let compare = compare
-end)
+let island = Hashtbl.create 1000
 
-let n, island = List.fold_left (fun (i, island) brick ->
-    (i + 1, List.fold_left (fun island pos -> Island.add pos i island) island brick)
-  ) (1, Island.empty) bricks
+let n = List.fold_left (fun i brick ->
+    let () = List.iter (fun pos -> Hashtbl.add island pos i) brick in
+    i + 1
+  ) 0 bricks
 
-let bricks = List.init (n - 1) (fun i -> i + 1)
+let bricks = List.init n (fun i -> i)
 
 let () = Printf.printf "%i bricks\n" n
 
 let print island =
-  for z = 10 downto 1 do
-    for y = 0 to 2 do
-      for x = 0 to 2 do
-        match Island.find_opt { x; y; z } island with
+  for z = 300 downto 1 do
+    for y = 0 to 9 do
+      for x = 0 to 9 do
+        match Hashtbl.find_opt island { x; y; z } with
         | None -> Printf.printf "."
-        | Some x -> Printf.printf "%i" x
+        | Some x -> Printf.printf "%i" (x mod 10)
       done ;
-      Printf.printf "          " ;
+      Printf.printf " " ;
     done ;
     Printf.printf "\n" ;
   done ;
@@ -65,39 +63,50 @@ let print island =
 
 let () = print island
 
-let drop n island =
-  let brick = Island.filter (fun _ v -> v = n) island in
-  let can_fall = Island.fold (fun pos _ hit ->
+let drop n =
+  let brick = Hashtbl.fold (fun pos v lst -> if v = n then pos :: lst else lst) island [] in
+  let () = assert (List.length brick <> 0) in
+  let can_fall = List.fold_left (fun hit pos ->
       hit && pos.z > 1 &&
-      match Island.find_opt { x = pos.x; y = pos.y; z = pos.z - 1 } island with
+      match Hashtbl.find_opt island { x = pos.x; y = pos.y; z = pos.z - 1 } with
       | None -> true
       | Some i -> i = n
-    ) brick true in
-  can_fall, 
-  (if can_fall then
-      Island.fold (fun pos _ i -> Island.remove pos i) brick island |>
-      Island.fold (fun pos x i -> Island.add { x = pos.x; y = pos.y; z = pos.z - 1 } x i) brick
-  else island)
+    ) true brick in
+  let () = if can_fall then
+      let () = List.iter (Hashtbl.remove island) brick in
+      List.iter (fun pos -> Hashtbl.add island { x = pos.x; y = pos.y; z = pos.z - 1 } n) brick in
+  can_fall 
 
-let rec drop_all island num =
-  let movement, island = List.fold_left (fun (movement, island) n ->
-      let cf, island = drop n island in
-      (cf || movement), island) (false, island) bricks in
+let rec drop_all () =
+  let movement = List.fold_left (fun movement n -> (drop n) || movement) false bricks in
     let () = Printf.printf "dropping\n" in
+let () = print island in
     let () = flush stdout in
-  if movement then drop_all island num else island
+  if movement then drop_all ()
 
-let island = drop_all island n
+let () = drop_all ()
+
+let can_drop n =
+  let brick = Hashtbl.fold (fun pos v lst -> if v = n then pos :: lst else lst) island [] in
+  let () = assert (List.length brick <> 0) in
+  let can_fall = List.fold_left (fun hit pos ->
+      hit && pos.z > 1 &&
+      match Hashtbl.find_opt island { x = pos.x; y = pos.y; z = pos.z - 1 } with
+      | None -> true
+      | Some i -> i = n
+    ) true brick in
+  can_fall 
 
 let part1 = List.fold_left (fun sum n ->
     let () = Printf.printf "considering %i\n" n in
     let () = flush stdout in
-  let one_removed = Island.filter (fun _ v -> v <> n) island in
-  let did_move, _ = List.fold_left (fun (movement, island) m -> 
-      let cf, island = drop m island in
-      (cf || movement), island) (false, one_removed) (List.filter (fun m -> n <> m) bricks) in
-  let () = Printf.printf "%i removed - %s\n" n (if did_move then "movement" else "solid") in
-    if did_move then sum else sum + 1
+  let brick = Hashtbl.fold (fun pos v lst -> if v = n then pos :: lst else lst) island [] in
+  let () = List.iter (Hashtbl.remove island) brick in
+  let was_movement = List.fold_left (fun movement m -> 
+      (can_drop m) || movement) false (List.filter (fun m -> n <> m) bricks) in
+  let () = List.iter (fun pos -> Hashtbl.add island pos n) brick in
+  let () = Printf.printf "%i removed - %s\n" n (if was_movement then "movement" else "solid") in
+    if was_movement then sum else sum + 1
 ) 0 bricks
 
 let () = Printf.printf "Part 1 - %i\n" part1
