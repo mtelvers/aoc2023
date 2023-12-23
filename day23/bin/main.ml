@@ -17,6 +17,8 @@ type coord = {
   x : int;
 }
 
+module T = Domainslib.Task
+
 let read_input = List.rev read_input
 let length = String.length (List.hd read_input)
 
@@ -54,7 +56,7 @@ let count ch i =
     | x -> loopx (loopy c x length) (x - 1) in
   loopx 0 length
 
-let rec loop i pos =
+let rec loop pool i pos =
   if pos = finish
   then count 'O' i
   else 
@@ -70,21 +72,23 @@ let rec loop i pos =
       | 'v' when p.y - 1 = pos.y -> true
       | _ -> false
     ) options in
-    List.fold_left (fun longest p ->
+    List.fold_left (fun promises p ->
         let copy = Array2.create Char C_layout length length in
         let () = Array2.blit i copy in
         let () = copy.{ p.x, p.y } <- 'O' in
-        max longest (loop copy p)) 0 options
+        T.async pool (fun _ -> loop pool copy p) :: promises) [] options |>
+    List.fold_left (fun longest prom -> max longest (T.await pool prom)) 0
 
-let part1 = loop island start
+let pool = T.setup_pool ~num_domains:6 ()
+let part1 = T.run pool (fun _ -> loop pool island start)
+let () = T.teardown_pool pool
 
 let () = Printf.printf "part 1 = %i\n" part1
 let () = flush stdout
 
 
 
-let rec loop i pos =
-(*  let () = print i in *)
+let rec loop pool i pos =
   if pos = finish
   then count 'O' i
   else 
@@ -96,13 +100,22 @@ let rec loop i pos =
       | '<' | '^' | 'v' | '>' | '.' -> true
       | _ -> false
     ) options in
-    List.fold_left (fun longest p ->
-        let copy = Array2.create Char C_layout length length in
-        let () = Array2.blit i copy in
-        let () = copy.{ p.x, p.y } <- 'O' in
-        max longest (loop copy p)) 0 options
+    match options with
+    | [] -> 0
+    | [p] ->
+      let () = i.{ p.x, p.y } <- 'O' in
+      loop pool i p
+    | _ ->
+      List.fold_left (fun promises p ->
+          let copy = Array2.create Char C_layout length length in
+          let () = Array2.blit i copy in
+          let () = copy.{ p.x, p.y } <- 'O' in
+          T.async pool (fun _ -> loop pool copy p) :: promises) [] options |>
+      List.fold_left (fun longest prom -> max longest (T.await pool prom)) 0
 
-let part2 = loop island start
+let pool = T.setup_pool ~num_domains:6 ()
+let part2 = T.run pool (fun _ -> loop pool island start)
+let () = T.teardown_pool pool
 
 let () = Printf.printf "part 2 = %i\n" part2
 let () = flush stdout

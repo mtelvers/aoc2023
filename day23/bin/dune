@@ -1,4 +1,4 @@
 (executable
  (public_name day23)
  (name main)
- (libraries bigarray))
+ (libraries bigarray domainslib))
