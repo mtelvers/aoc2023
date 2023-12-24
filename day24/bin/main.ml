@@ -64,7 +64,6 @@ let rec crossing_hailstones low high count = function
       let cross_x, cross_y, _ = vec_add h1.pos (multiply_scalar h1.dir u) in
       if low <= cross_x && cross_x <= high && low <= cross_y && cross_y <= high
       then
-     (*   let () = Printf.printf "h1 %s h2 %s at %s\n" (vec_to_string h1.pos) (vec_to_string h2.pos) (vec_to_string (cross_x, cross_y, 0.)) in *)
         sum + 1
       else sum
     else sum
@@ -74,3 +73,48 @@ let rec crossing_hailstones low high count = function
 let part1 = crossing_hailstones 200_000_000_000_000. 400_000_000_000_000. 0 hailstones
 
 let () = Printf.printf "part 1 - %i\n" part1
+
+
+let () =
+  let oc = open_out "solve.ae" in
+  let () = Printf.fprintf oc "logic px, py, pz, dx, dy, dz : real\n" in
+  let () = List.iteri (fun i h ->
+    let px, py, pz = h.pos in
+    let dx, dy, dz = h.dir in
+    let () = Printf.fprintf oc "logic t%03d : real\n" i in
+    let () = Printf.fprintf oc "axiom cx%03d : %.1f + (%.1f * t%03d) = px + (dx * t%03d)\n" i px dx i i in
+    let () = Printf.fprintf oc "axiom cy%03d : %.1f + (%.1f * t%03d) = py + (dy * t%03d)\n" i py dy i i in
+    let () = Printf.fprintf oc "axiom cz%03d : %.1f + (%.1f * t%03d) = pz + (dz * t%03d)\n" i pz dz i i in
+    let () = Printf.fprintf oc "check_sat g%03d : t%03d > 0.0\n" i i in
+    ()
+  ) hailstones in
+  close_out oc
+
+(*
+ * opam install alt-ergo
+ * Then `alt-ergo solve.ae --dump-models`
+ *
+
+File "solve.ae", line 46, characters 19-29: I don't know (0.8420) (349 steps) (goal at008)
+(
+  (define-fun px () Real 287430900705823)
+  (define-fun py () Real 451620998712421)
+  (define-fun pz () Real 260730677041648)
+  (define-fun dx () Real (- 20))
+  (define-fun dy () Real (- 274))
+  (define-fun dz () Real 31)
+  (define-fun t000 () Real 654071052858)
+  (define-fun t001 () Real 857208450422)
+  (define-fun t002 () Real 556101734365)
+  (define-fun t003 () Real 476479664657)
+  (define-fun t004 () Real 168465616583)
+  (define-fun t005 () Real 727041923887)
+  (define-fun t006 () Real 620070537368)
+  (define-fun t007 () Real 616838084871)
+  (define-fun t008 () Real 578700563495)
+  (define-fun t009 () Real 417370510294)
+)
+
+Sum px, py and pz for the answer
+
+   *)
